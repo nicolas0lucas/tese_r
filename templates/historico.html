@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>EcoMetrics - Histórico</title>
+  <link rel="stylesheet" href="static/style.css">
+  <link rel="stylesheet" href="https://cdn.datatables.net/1.11.5/css/jquery.dataTables.min.css">
+</head>
+<body>
+  <!-- Cabeçalho com menu -->
+  <header>
+    <div class="nav-container">
+      <div class="nav-item" onclick="window.location.href='index.html'">Calcular Emissões</div>
+      <div class="nav-item logo" onclick="window.location.href='index.html'">EcoMetrics</div>
+      <div class="nav-item active" onclick="window.location.href='historico.html'">Histórico</div>
+    </div>
+  </header>
+
+  <!-- Área principal -->
+  <main>
+    <div class="historico-container">
+      <div class="historico-header">
+        <h2>Histórico de Emissões</h2>
+        <div class="historico-actions">
+          <button id="exportExcel" class="export-button">Exportar para Excel</button>
+          <button id="filterButton" class="filter-button">Filtrar</button>
+          <button id="refreshButton" class="refresh-button">Atualizar</button>
+        </div>
+      </div>
+
+      <div class="filter-container" id="filterContainer" style="display: none;">
+        <div class="filter-group">
+          <label for="dateFrom">De:</label>
+          <input type="date" id="dateFrom" name="dateFrom">
+        </div>
+        <div class="filter-group">
+          <label for="dateTo">Até:</label>
+          <input type="date" id="dateTo" name="dateTo">
+        </div>
+        <div class="filter-group">
+          <label for="empreendimento">Empreendimento:</label>
+          <input type="text" id="empreendimento" name="empreendimento" placeholder="Filtrar por nome">
+        </div>
+        <div class="filter-group">
+          <label for="tipoEmissao">Tipo de Emissão:</label>
+          <select id="tipoEmissao" name="tipoEmissao">
+            <option value="">Todos</option>
+            <option value="Combustão">Combustão</option>
+            <option value="Energia">Energia</option>
+            <option value="Transporte">Transporte</option>
+            <option value="Fugitivas">Fugitivas</option>
+            <option value="Solo">Uso do Solo</option>
+          </select>
+        </div>
+        <button id="applyFilter" class="apply-button">Aplicar</button>
+        <button id="clearFilter" class="clear-button">Limpar</button>
+      </div>
+
+      <div class="table-container">
+        <table id="emissionsTable" class="display">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Empreendimento</th>
+              <th>Data</th>
+              <th>Tipo</th>
+              <th>CO₂ (t)</th>
+              <th>CH₄ (tCO₂e)</th>
+              <th>N₂O (tCO₂e)</th>
+              <th>Total (tCO₂e)</th>
+              <th>Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            <!-- Dados serão carregados via JavaScript -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Modal para visualização detalhada -->
+    <div id="detailsModal" class="modal">
+      <div class="modal-content">
+        <span class="close">&times;</span>
+        <h3>Detalhes da Emissão</h3>
+        <div id="modalContent"></div>
+      </div>
+    </div>
+
+    <!-- Modal de confirmação -->
+    <div id="confirmModal" class="modal">
+      <div class="modal-content">
+        <h3>Confirmar Exclusão</h3>
+        <p id="confirmMessage">Tem certeza que deseja excluir este registro?</p>
+        <div class="modal-buttons">
+          <button id="confirmDelete" class="danger-btn">Excluir</button>
+          <button id="cancelDelete" class="secondary-btn">Cancelar</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script>
+      $(document).ready(function() {
+        // Inicializa DataTable
+        const table = $('#emissionsTable').DataTable({
+          ajax: {
+            url: '/api/historico',
+            dataSrc: '',
+            error: function(xhr) {
+              alert('Erro ao cargar dados: ' + xhr.responseJSON?.message || 'Erro desconhecido');
+            }
+          },
+          columns: [
+            { data: 'id', visible: false },
+            { data: 'empreendimento' },
+            { 
+              data: 'data', 
+              render: function(data) {
+                return data ? new Date(data).toLocaleDateString('pt-BR') : 'N/A';
+              }
+            },
+            { data: 'tipo' },
+            { 
+              data: 'co2', 
+              render: $.fn.dataTable.render.number('.', ',', 2, '') 
+            },
+            { 
+              data: 'ch4', 
+              render: $.fn.dataTable.render.number('.', ',', 2, '') 
+            },
+            { 
+              data: 'n2o', 
+              render: $.fn.dataTable.render.number('.', ',', 2, '') 
+            },
+            { 
+              data: 'total', 
+              render: $.fn.dataTable.render.number('.', ',', 2, ''),
+              className: 'total-column'
+            },
+            { 
+              data: null,
+              render: function(data, type, row) {
+                return `
+                  <button class="action-btn view-btn" data-id="${row.id}">👁️</button>
+                  <button class="action-btn edit-btn" data-id="${row.id}">✏️</button>
+                  <button class="action-btn delete-btn" data-id="${row.id}">🗑️</button>
+                `;
+              },
+              orderable: false
+            }
+          ],
+          language: {
+            url: 'https://cdn.datatables.net/plug-ins/1.11.5/i18n/pt-BR.json'
+          },
+          order: [[2, 'desc']] // Ordena por data decrescente
+        });
+
+        // Atualizar dados
+        $('#refreshButton').click(function() {
+          table.ajax.reload();
+        });
+
+        // Filtros
+        $('#filterButton').click(function() {
+          $('#filterContainer').toggle();
+        });
+
+        $('#applyFilter').click(function() {
+          const filters = {
+            empreendimento: $('#empreendimento').val(),
+            tipo: $('#tipoEmissao').val(),
+            dateFrom: $('#dateFrom').val(),
+            dateTo: $('#dateTo').val()
+          };
+          
+          table.ajax.url('/api/historico?' + $.param(filters)).load();
+        });
+
+        $('#clearFilter').click(function() {
+          $('#dateFrom').val('');
+          $('#dateTo').val('');
+          $('#empreendimento').val('');
+          $('#tipoEmissao').val('');
+          table.ajax.url('/api/historico').load();
+        });
+
+        // Exportar para Excel
+        $('#exportExcel').click(function() {
+          const filters = {
+            empreendimento: $('#empreendimento').val(),
+            tipo: $('#tipoEmissao').val(),
+            dateFrom: $('#dateFrom').val(),
+            dateTo: $('#dateTo').val()
+          };
+          
+          fetch('/api/historico/excel?' + $.param(filters))
+            .then(response => response.blob())
+            .then(blob => {
+              const url = window.URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = 'historico_emissoes.xlsx';
+              document.body.appendChild(a);
+              a.click();
+              window.URL.revokeObjectURL(url);
+            });
+        });
+
+        // Modal de detalhes
+        const detailsModal = $("#detailsModal");
+        const confirmModal = $("#confirmModal");
+        let currentId = null;
+
+        $(document).on('click', '.view-btn', function() {
+          currentId = $(this).data('id');
+          fetch(`/api/historico/${currentId}`)
+            .then(response => response.json())
+            .then(data => {
+              $('#modalContent').html(`
+                <div class="detail-row">
+                  <span class="detail-label">Empreendimento:</span>
+                  <span class="detail-value">${data.empreendimento || 'N/A'}</span>
+                </div>
+                <div class="detail-row">
+                  <span class="detail-label">Data:</span>
+                  <span class="detail-value">${data.data ? new Date(data.data).toLocaleDateString('pt-BR') : 'N/A'}</span>
+                </div>
+                <div class="detail-row">
+                  <span class="detail-label">Localização:</span>
+                  <span class="detail-value">${data.localizacao || 'N/A'}</span>
+                </div>
+                <div class="detail-row">
+                  <span class="detail-label">Metodologia:</span>
+                  <span class="detail-value">${data.metodologia || 'N/A'}</span>
+                </div>
+                <h4>Detalhes das Emissões</h4>
+                <div class="emissions-details">
+                  ${data.detalhes ? data.detalhes.map(d => `
+                    <div class="emission-type">
+                      <h5>${d.tipo}</h5>
+                      <p>CO₂: ${d.co2 ? d.co2.toFixed(2) : 0} t</p>
+                      <p>CH₄: ${d.ch4 ? d.ch4.toFixed(2) : 0} tCO₂e</p>
+                      <p>N₂O: ${d.n2o ? d.n2o.toFixed(2) : 0} tCO₂e</p>
+                    </div>
+                  `).join('') : 'Nenhum detalhe disponível'}
+                </div>
+              `);
+              detailsModal.css('display', 'block');
+            })
+            .catch(error => {
+              alert('Erro ao carregar detalhes: ' + error.message);
+            });
+        });
+
+        $(document).on('click', '.edit-btn', function() {
+          const id = $(this).data('id');
+          // Implementar lógica de edição
+          alert('Editar registro ' + id);
+        });
+
+        $(document).on('click', '.delete-btn', function() {
+          currentId = $(this).data('id');
+          confirmModal.css('display', 'block');
+        });
+
+        $('#confirmDelete').click(function() {
+          fetch(`/api/historico/${currentId}`, {
+            method: 'DELETE'
+          })
+          .then(response => {
+            if(response.ok) {
+              table.ajax.reload();
+              confirmModal.css('display', 'none');
+            } else {
+              throw new Error('Erro ao excluir');
+            }
+          })
+          .catch(error => {
+            alert('Erro ao excluir registro: ' + error.message);
+          });
+        });
+
+        $('#cancelDelete').click(function() {
+          confirmModal.css('display', 'none');
+        });
+
+        $('.close, .modal').click(function(e) {
+          if(e.target === this || $(e.target).hasClass('close')) {
+            detailsModal.css('display', 'none');
+            confirmModal.css('display', 'none');
+          }
+        });
+      });
+    </script>
+  </main>
+</body>
+</html>

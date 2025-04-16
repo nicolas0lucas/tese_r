@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>EcoMetrics - Início</title>
+  <link rel="stylesheet" href="static/style.css">
+  <!-- Adicionando biblioteca para máscaras -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.mask/1.14.16/jquery.mask.min.js"></script>
+</head>
+<body>
+  <!-- Cabeçalho com menu -->
+  <header>
+    <div class="nav-container">
+      <div class="nav-item active">Calcular Emissões</div>
+      <div class="nav-item logo" onclick="window.location.href='index.html'">EcoMetrics</div>
+      <div class="nav-item" onclick="window.location.href='historico.html'">Histórico</div>
+    </div>
+  </header>
+
+  <!-- Área principal -->
+  <main>
+    <div class="wizard-container">
+      <div class="wizard-steps">
+        <div class="step active">1. Informações Básicas</div>
+        <div class="step">2. Combustão</div>
+        <div class="step">3. Energia e Transporte</div>
+        <div class="step">4. Emissões Fugitivas</div>
+      </div>
+
+      <form id="empreendimentoForm" action="/salvar-empreendimento" method="POST">
+        <div class="form-container">
+          <h2>Informações do Empreendimento</h2>
+          
+          <div class="form-group">
+            <label for="nome_empreendimento">Nome do empreendimento *</label>
+            <input type="text" id="nome_empreendimento" name="nome_empreendimento" placeholder="Ex.: Usina Solar XYZ" required>
+          </div>
+
+          <div class="form-group">
+            <label for="local">Localização *</label>
+            <input type="text" id="local" name="local" placeholder="Ex.: Belo Horizonte, MG" required>
+          </div>
+
+          <div class="row">
+            <div class="column">
+              <div class="form-group">
+                <label for="bioma">Bioma *</label>
+                <select id="bioma" name="bioma" required>
+                  <option value="">Selecione...</option>
+                  <option value="Amazônia">Amazônia</option>
+                  <option value="Cerrado">Cerrado</option>
+                  <option value="Mata Atlântica">Mata Atlântica</option>
+                  <option value="Caatinga">Caatinga</option>
+                  <option value="Pampa">Pampa</option>
+                  <option value="Pantanal">Pantanal</option>
+                </select>
+              </div>
+            </div>
+            <div class="column">
+              <div class="form-group">
+                <label for="vida_util">Vida útil (anos) *</label>
+                <input type="number" id="vida_util" name="vida_util" min="1" max="100" placeholder="Ex.: 25" required>
+              </div>
+            </div>
+            <div class="column">
+              <div class="form-group">
+                <label for="fator_capacidade">Fator de capacidade (%) *</label>
+                <input type="number" id="fator_capacidade" name="fator_capacidade" step="0.01" min="0" max="100" placeholder="Ex.: 20.5" required>
+              </div>
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="column">
+              <div class="form-group">
+                <label for="inicio_geracao">Início da operação *</label>
+                <input type="month" id="inicio_geracao" name="inicio_geracao" required>
+              </div>
+            </div>
+            <div class="column">
+              <div class="form-group">
+                <label for="termino_previsto">Término previsto *</label>
+                <input type="month" id="termino_previsto" name="termino_previsto" required>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="metodologia">Metodologia de cálculo *</label>
+            <select id="metodologia" name="metodologia" required>
+              <option value="">Selecione...</option>
+              <option value="IPCC">Diretrizes IPCC 2006</option>
+              <option value="GHG Protocol">GHG Protocol</option>
+              <option value="BRAM">Metodologia BRAM</option>
+            </select>
+          </div>
+
+          <div class="button-row">
+            <button type="button" id="importButton" class="secondary-btn">Importar Dados</button>
+            <button type="submit" class="primary-btn">Salvar e Continuar</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </main>
+
+  <script>
+    $(document).ready(function() {
+      // Validação do formulário
+      $('#empreendimentoForm').submit(function(e) {
+        const inicio = new Date($('#inicio_geracao').val());
+        const termino = new Date($('#termino_previsto').val());
+        
+        if (termino <= inicio) {
+          alert('A data de término deve ser posterior à data de início!');
+          e.preventDefault();
+          return false;
+        }
+        return true;
+      });
+
+      // Máscara para localização (cidade/UF)
+      $('#local').mask('SS/S', {
+        translation: {
+          'S': {
+            pattern: /[A-Za-z]/,
+            recursive: true
+          }
+        }
+      });
+
+      // Redirecionar para próxima página após salvar
+      $('#empreendimentoForm').on('submit', function(e) {
+        e.preventDefault();
+        // Aqui você pode adicionar uma chamada AJAX para salvar os dados
+        // Após sucesso, redirecionar:
+        window.location.href = 'combustao.html';
+      });
+
+      // Simular upload de arquivo
+      $('#importButton').click(function() {
+        // Implementar lógica de upload aqui
+        alert('Funcionalidade de importação será implementada');
+      });
+    });
+  </script>
+</body>
+</html>

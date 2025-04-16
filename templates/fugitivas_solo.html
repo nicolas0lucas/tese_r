@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>EcoMetrics - Emissões Fugitivas e Uso do Solo</title>
+  <link rel="stylesheet" href="static/style.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+</head>
+<body>
+  <!-- Cabeçalho com menu -->
+  <header>
+    <div class="nav-container">
+      <div class="nav-item" onclick="window.location.href='index.html'">Calcular Emissões</div>
+      <div class="nav-item logo" onclick="window.location.href='index.html'">EcoMetrics</div>
+      <div class="nav-item" onclick="window.location.href='historico.html'">Histórico</div>
+    </div>
+  </header>
+
+  <!-- Área principal -->
+  <main>
+    <!-- Container que agrupa as duas seções -->
+    <div class="emissoes-container">
+      <!-- Emissões Fugitivas -->
+      <form id="formFugitivas" class="emissoes-box">
+        <h2>Emissões fugitivas</h2>
+        <input type="hidden" name="tipo" value="Emissões Fugitivas">
+        
+        <label>Id fonte:</label>
+        <input type="text" name="id_fonte" placeholder="Ex.: Vazamento de gás" required>
+
+        <label>Tipo de emissão:</label>
+        <select name="tipo_emissao" required>
+          <option value="">Selecione um</option>
+          <option value="vazamento">Vazamento</option>
+          <option value="evaporacao">Evaporação</option>
+          <option value="descarga">Descarga intencional</option>
+        </select>
+
+        <label>Gás emitido:</label>
+        <select name="gas" required>
+          <option value="">Selecione um</option>
+          <option value="CH4">Metano (CH₄)</option>
+          <option value="CO2">Dióxido de Carbono (CO₂)</option>
+          <option value="N2O">Óxido Nitroso (N₂O)</option>
+          <option value="SF6">Hexafluoreto de Enxofre (SF₆)</option>
+        </select>
+
+        <label>Quantidade (kg):</label>
+        <input type="number" name="quantidade" step="0.01" min="0" placeholder="Ex.: 50" required>
+
+        <div id="fugitivas-container">
+          <!-- Itens adicionados dinamicamente aparecerão aqui -->
+        </div>
+        <button type="button" class="add-button" onclick="adicionarEmissao()">+ Adicionar outra emissão</button>
+
+        <div class="button-row">
+          <button type="submit" class="secondary-btn">Salvar Dados</button>
+        </div>
+      </form>
+
+      <!-- Mudanças de uso do solo -->
+      <form id="formSolo" class="emissoes-box">
+        <h2>Mudanças de uso do solo</h2>
+        <input type="hidden" name="tipo" value="Uso do Solo">
+        
+        <label>Tipo de vegetação:</label>
+        <select name="vegetacao" required>
+          <option value="">Selecione um</option>
+          <option value="eucalipto">Eucalipto</option>
+          <option value="pinus">Pinus</option>
+          <option value="nativa">Mata Nativa</option>
+          <option value="pastagem">Pastagem</option>
+        </select>
+
+        <label>Área (hectares):</label>
+        <input type="number" name="area" step="0.01" min="0" placeholder="Ex.: 10" required>
+
+        <label>Volume de madeira (m³):</label>
+        <input type="number" name="volume_madeira" step="0.01" min="0" placeholder="Ex.: 150">
+
+        <label>Densidade (kg/m³):</label>
+        <input type="number" name="densidade" step="0.01" min="0" placeholder="Ex.: 500">
+
+        <div id="solo-container">
+          <!-- Itens adicionados dinamicamente aparecerão aqui -->
+        </div>
+        <button type="button" class="add-button" onclick="adicionarVegetacao()">+ Adicionar outra área</button>
+
+        <div class="button-row">
+          <button type="submit" class="secondary-btn">Salvar Dados</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Botão para próxima página -->
+    <div class="button-row center" style="margin-top: 30px;">
+      <button id="btnContinuar" class="primary-btn" onclick="window.location.href='resumo.html'">Ver Resumo</button>
+    </div>
+
+    <script>
+      $(document).ready(function() {
+        // Processa formulário de emissões fugitivas
+        $('#formFugitivas').submit(function(e) {
+          e.preventDefault();
+          enviarDados($(this), 'fugitivas');
+        });
+
+        // Processa formulário de uso do solo
+        $('#formSolo').submit(function(e) {
+          e.preventDefault();
+          enviarDados($(this), 'solo');
+        });
+
+        function enviarDados(form, tipo) {
+          // Coleta dados dos campos dinâmicos
+          const dadosExtras = {};
+          if(tipo === 'fugitivas') {
+            // Processa emissões extras
+          } else {
+            // Processa áreas extras
+          }
+
+          $.ajax({
+            url: '/calcular',
+            type: 'POST',
+            data: form.serialize(),
+            success: function(response) {
+              if(response.success) {
+                localStorage.setItem('dados_' + tipo + '_salvos', 'true');
+                alert('Dados de ' + tipo + ' salvos com sucesso!');
+                
+                // Verifica se ambos foram salvos para habilitar continuar
+                if(localStorage.getItem('dados_fugitivas_salvos') && 
+                   localStorage.getItem('dados_solo_salvos')) {
+                  $('#btnContinuar').prop('disabled', false);
+                }
+              } else {
+                alert('Erro: ' + response.error);
+              }
+            },
+            error: function(xhr) {
+              alert('Erro na comunicação com o servidor');
+            }
+          });
+        }
+        
+        // Desabilita o botão continuar inicialmente
+        $('#btnContinuar').prop('disabled', true);
+        
+        // Verifica se já tem dados salvos ao carregar a página
+        if(localStorage.getItem('dados_fugitivas_salvos') && 
+           localStorage.getItem('dados_solo_salvos')) {
+          $('#btnContinuar').prop('disabled', false);
+        }
+      });
+
+      // Função para adicionar múltiplas emissões fugitivas
+      function adicionarEmissao() {
+        const container = document.getElementById('fugitivas-container');
+        const newItem = document.createElement('div');
+        newItem.className = 'emissao-item';
+        newItem.innerHTML = `
+          <hr>
+          <label>Tipo de emissão:</label>
+          <select name="tipo_emissao_extra[]" required>
+            <option value="">Selecione um</option>
+            <option value="vazamento">Vazamento</option>
+            <option value="evaporacao">Evaporação</option>
+          </select>
+          <label>Gás emitido:</label>
+          <select name="gas_extra[]" required>
+            <option value="">Selecione um</option>
+            <option value="CH4">Metano (CH₄)</option>
+            <option value="CO2">Dióxido de Carbono (CO₂)</option>
+          </select>
+          <label>Quantidade (kg):</label>
+          <input type="number" name="quantidade_extra[]" step="0.01" min="0" required>
+          <button type="button" class="remove-button" onclick="this.parentElement.remove()">Remover</button>
+        `;
+        container.appendChild(newItem);
+      }
+
+      // Função para adicionar múltiplas áreas de vegetação
+      function adicionarVegetacao() {
+        const container = document.getElementById('solo-container');
+        const newItem = document.createElement('div');
+        newItem.className = 'vegetacao-item';
+        newItem.innerHTML = `
+          <hr>
+          <label>Tipo de vegetação:</label>
+          <select name="vegetacao_extra[]" required>
+            <option value="">Selecione um</option>
+            <option value="eucalipto">Eucalipto</option>
+            <option value="pinus">Pinus</option>
+          </select>
+          <label>Área (hectares):</label>
+          <input type="number" name="area_extra[]" step="0.01" min="0" required>
+          <button type="button" class="remove-button" onclick="this.parentElement.remove()">Remover</button>
+        `;
+        container.appendChild(newItem);
+      }
+    </script>
+  </main>
+</body>
+</html>

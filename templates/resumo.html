@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>EcoMetrics - Resultados</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+</head>
+<body>
+  <header>
+    <div class="nav-container">
+      <div class="nav-item" onclick="window.location.href='index.html'">Calcular Emissões</div>
+      <div class="nav-item logo" onclick="window.location.href='index.html'">EcoMetrics</div>
+      <div class="nav-item" onclick="window.location.href='historico.html'">Histórico</div>
+    </div>
+  </header>
+
+  <main>
+    <div class="results-container">
+      <!-- Card com informações do empreendimento -->
+      <div class="info-card">
+        <h2>Resumo das Emissões</h2>
+        <div id="empreendimento-info">
+          <!-- Será preenchido via JavaScript -->
+        </div>
+      </div>
+
+      <!-- Gráficos principais -->
+      <div class="chart-row">
+        <div class="chart-container">
+          <h3>Emissões por Categoria (tCO₂e)</h3>
+          <canvas id="categoryChart"></canvas>
+        </div>
+        <div class="chart-container">
+          <h3>Distribuição por Gás (tCO₂e)</h3>
+          <canvas id="gasChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Gráfico de barras agrupadas -->
+      <div class="chart-container">
+        <h3>Emissões por Gás e Categoria</h3>
+        <canvas id="stackedBarChart"></canvas>
+      </div>
+
+      <!-- Tabela detalhada -->
+      <div class="chart-container">
+        <h3>Detalhamento das Emissões</h3>
+        <table id="resultsTable">
+          <thead>
+            <tr>
+              <th>Categoria</th>
+              <th>CO₂ (t)</th>
+              <th>CH₄ (tCO₂e)</th>
+              <th>N₂O (tCO₂e)</th>
+              <th>Total (tCO₂e)</th>
+            </tr>
+          </thead>
+          <tbody id="resultsTableBody">
+            <!-- Será preenchido via JavaScript -->
+          </tbody>
+          <tfoot>
+            <tr class="total-row">
+              <td>Total Geral</td>
+              <td id="total-co2">0.00</td>
+              <td id="total-ch4">0.00</td>
+              <td id="total-n2o">0.00</td>
+              <td id="total-geral">0.00</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      <!-- Painel de ações -->
+      <div class="chart-container">
+        <h3>Ações</h3>
+        <button id="exportExcelBtn" class="action-btn">Exportar para Excel</button>
+        <button id="saveHistoryBtn" class="action-btn">Salvar no Histórico</button>
+        <button id="newCalculationBtn" class="action-btn">Novo Cálculo</button>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    $(document).ready(function() {
+      // Carrega os dados do servidor
+      function loadData() {
+        $.ajax({
+          url: '/api/resumo',
+          type: 'GET',
+          success: function(response) {
+            if(response.success) {
+              renderData(response.data);
+            } else {
+              alert('Erro ao carregar dados: ' + (response.error || 'Erro desconhecido'));
+            }
+          },
+          error: function(xhr) {
+            alert('Erro na comunicação com o servidor');
+          }
+        });
+      }
+
+      // Renderiza os dados na página
+      function renderData(data) {
+        // Preenche informações do empreendimento
+        $('#empreendimento-info').html(`
+          <p><strong>Nome:</strong> ${data.empreendimento.nome || 'Não informado'}</p>
+          <p><strong>Local:</strong> ${data.empreendimento.local || 'Não informado'}</p>
+          <p><strong>Metodologia:</strong> ${data.empreendimento.metodologia || 'Não informada'}</p>
+          <p><strong>Data:</strong> ${new Date().toLocaleDateString('pt-BR')}</p>
+        `);
+
+        // Preenche a tabela
+        const tableBody = $('#resultsTableBody');
+        tableBody.empty();
+        
+        let totalCO2 = 0, totalCH4 = 0, totalN2O = 0, totalGeral = 0;
+        
+        data.tabela_detalhes.forEach(item => {
+          totalCO2 += item.CO2;
+          totalCH4 += item.CH4;
+          totalN2O += item.N2O;
+          totalGeral += item.Total;
+          
+          tableBody.append(`
+            <tr>
+              <td>${item.Categoria}</td>
+              <td>${item.CO2.toFixed(2)}</td>
+              <td>${item.CH4.toFixed(2)}</td>
+              <td>${item.N2O.toFixed(2)}</td>
+              <td>${item.Total.toFixed(2)}</td>
+            </tr>
+          `);
+        });
+
+        // Atualiza totais
+        $('#total-co2').text(totalCO2.toFixed(2));
+        $('#total-ch4').text(totalCH4.toFixed(2));
+        $('#total-n2o').text(totalN2O.toFixed(2));
+        $('#total-geral').text(totalGeral.toFixed(2));
+
+        // Cria os gráficos
+        createCharts(data);
+      }
+
+      // Cria os gráficos
+      function createCharts(data) {
+        // Configuração de cores
+        const colors = {
+          CO2: 'rgba(255, 99, 132, 0.7)',
+          CH4: 'rgba(54, 162, 235, 0.7)',
+          N2O: 'rgba(255, 206, 86, 0.7)',
+          borders: 'rgba(255, 255, 255, 1)'
+        };
+
+        // 1. Gráfico por Categoria
+        new Chart($('#categoryChart')[0].getContext('2d'), {
+          type: 'bar',
+          data: {
+            labels: data.categorias,
+            datasets: [{
+              label: 'Total de Emissões (tCO₂e)',
+              data: data.categorias.map(cat => {
+                const item = data.tabela_detalhes.find(i => i.Categoria === cat);
+                return item ? item.Total : 0;
+              }),
+              backgroundColor: data.categorias.map((_, i) => 
+                `hsl(${i * 360 / data.categorias.length}, 70%, 50%)`),
+              borderColor: colors.borders,
+              borderWidth: 1
+            }]
+          },
+          options: {
+            responsive: true,
+            scales: { y: { beginAtZero: true } }
+          }
+        });
+
+        // 2. Gráfico de Distribuição por Gás
+        new Chart($('#gasChart')[0].getContext('2d'), {
+          type: 'pie',
+          data: {
+            labels: ['CO₂', 'CH₄', 'N₂O'],
+            datasets: [{
+              data: [data.totais_gerais.CO2, data.totais_gerais.CH4, data.totais_gerais.N2O],
+              backgroundColor: [colors.CO2, colors.CH4, colors.N2O],
+              borderWidth: 1
+            }]
+          },
+          options: {
+            responsive: true,
+            plugins: {
+              tooltip: {
+                callbacks: {
+                  label: function(context) {
+                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                    const value = context.raw;
+                    const percentage = Math.round((value / total) * 100);
+                    return `${context.label}: ${value.toFixed(2)} t (${percentage}%)`;
+                  }
+                }
+              }
+            }
+          }
+        });
+
+        // 3. Gráfico de Barras Agrupadas
+        new Chart($('#stackedBarChart')[0].getContext('2d'), {
+          type: 'bar',
+          data: {
+            labels: data.categorias,
+            datasets: [
+              {
+                label: 'CO₂',
+                data: data.categorias.map(cat => {
+                  const item = data.tabela_detalhes.find(i => i.Categoria === cat);
+                  return item ? item.CO2 : 0;
+                }),
+                backgroundColor: colors.CO2,
+                borderColor: colors.borders,
+                borderWidth: 1
+              },
+              {
+                label: 'CH₄',
+                data: data.categorias.map(cat => {
+                  const item = data.tabela_detalhes.find(i => i.Categoria === cat);
+                  return item ? item.CH4 : 0;
+                }),
+                backgroundColor: colors.CH4,
+                borderColor: colors.borders,
+                borderWidth: 1
+              },
+              {
+                label: 'N₂O',
+                data: data.categorias.map(cat => {
+                  const item = data.tabela_detalhes.find(i => i.Categoria === cat);
+                  return item ? item.N2O : 0;
+                }),
+                backgroundColor: colors.N2O,
+                borderColor: colors.borders,
+                borderWidth: 1
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            scales: {
+              x: { stacked: true },
+              y: { stacked: true, beginAtZero: true }
+            }
+          }
+        });
+      }
+
+      // Exportar para Excel
+      $('#exportExcelBtn').click(function() {
+        $.ajax({
+          url: '/api/resumo/excel',
+          type: 'GET',
+          xhrFields: {
+            responseType: 'blob'
+          },
+          success: function(blob) {
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'resumo_emissoes.xlsx';
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+          },
+          error: function() {
+            alert('Erro ao exportar para Excel');
+          }
+        });
+      });
+
+      // Salvar no histórico
+      $('#saveHistoryBtn').click(function() {
+        if(confirm('Deseja salvar este cálculo no histórico?')) {
+          $.ajax({
+            url: '/api/historico',
+            type: 'POST',
+            success: function(response) {
+              if(response.success) {
+                alert('Cálculo salvo no histórico com sucesso!');
+              } else {
+                alert('Erro ao salvar: ' + (response.error || 'Erro desconhecido'));
+              }
+            },
+            error: function() {
+              alert('Erro ao salvar no histórico');
+            }
+          });
+        }
+      });
+
+      // Novo cálculo
+      $('#newCalculationBtn').click(function() {
+        if(confirm('Deseja iniciar um novo cálculo? Todos os dados atuais serão perdidos.')) {
+          $.ajax({
+            url: '/limpar-dados',
+            type: 'POST',
+            success: function(response) {
+              if(response.status === 'Dados limpos com sucesso') {
+                window.location.href = '/';
+              }
+            },
+            error: function() {
+              alert('Erro ao limpar dados');
+            }
+          });
+        }
+      });
+
+      // Carrega os dados ao iniciar
+      loadData();
+    });
+  </script>
+</body>
+</html>

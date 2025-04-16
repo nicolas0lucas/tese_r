@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>EcoMetrics - Combustão</title>
+  <link rel="stylesheet" href="static/style.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+</head>
+<body>
+  <!-- Cabeçalho com menu -->
+  <header>
+    <div class="nav-container">
+      <div class="nav-item" onclick="window.location.href='index.html'">Calcular Emissões</div>
+      <div class="nav-item logo" onclick="window.location.href='index.html'">EcoMetrics</div>
+      <div class="nav-item" onclick="window.location.href='historico.html'">Histórico</div>
+    </div>
+  </header>
+
+  <!-- Área principal -->
+  <main>
+    <!-- Container que agrupa as duas seções -->
+    <div class="combustao-container">
+      <!-- Combustão Estacionária -->
+      <form id="formEstacionaria" class="combustao-box">
+        <h2>Combustão estacionária</h2>
+        <input type="hidden" name="tipo" value="Combustão Estacionária">
+        
+        <label>Id fonte:</label>
+        <input type="text" name="id_fonte_estacionaria" placeholder="Ex.: Gerador 1" required>
+
+        <label>Quantidade (L):</label>
+        <input type="number" name="consumo" step="0.01" min="0" placeholder="Ex.: 200" required>
+
+        <label>Combustível:</label>
+        <select name="combustivel" required>
+          <option value="">Selecione um</option>
+          <option value="Diesel">Diesel</option>
+          <option value="Gasolina">Gasolina</option>
+          <option value="Etanol">Etanol</option>
+          <option value="Acetileno">Acetileno</option>
+        </select>
+
+        <div class="button-row">
+          <button type="submit" class="secondary-btn">Salvar Dados</button>
+        </div>
+      </form>
+
+      <!-- Combustão Móvel -->
+      <form id="formMovel" class="combustao-box">
+        <h2>Combustão Móvel</h2>
+        <input type="hidden" name="tipo" value="Combustão Móvel">
+        
+        <label>Id fonte:</label>
+        <input type="text" name="id_fonte_movel" placeholder="Ex.: Veículo 1" required>
+
+        <label>Distância (km):</label>
+        <input type="number" name="distancia" step="0.01" min="0" placeholder="Ex.: 150" required>
+
+        <label>Eficiência (km/L):</label>
+        <input type="number" name="eficiencia" step="0.01" min="0.01" placeholder="Ex.: 5" required>
+
+        <label>Combustível:</label>
+        <select name="combustivel" required>
+          <option value="">Selecione um</option>
+          <option value="Diesel">Diesel</option>
+          <option value="Gasolina">Gasolina</option>
+          <option value="Etanol">Etanol</option>
+          <option value="Biodiesel">Biodiesel (B100)</option>
+          <option value="Gás Natural">GNV</option>
+        </select>
+
+        <div class="button-row">
+          <button type="submit" class="secondary-btn">Salvar Dados</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Botão para próxima página -->
+    <div class="button-row center" style="margin-top: 30px;">
+      <button class="primary-btn" onclick="window.location.href='energia_transporte.html'">Continuar para Energia e Transporte</button>
+    </div>
+
+    <script>
+      $(document).ready(function() {
+        // Processa formulário de combustão estacionária
+        $('#formEstacionaria').submit(function(e) {
+          e.preventDefault();
+          enviarDados($(this), 'estacionaria');
+        });
+
+        // Processa formulário de combustão móvel
+        $('#formMovel').submit(function(e) {
+          e.preventDefault();
+          enviarDados($(this), 'movel');
+        });
+
+        function enviarDados(form, tipo) {
+          $.ajax({
+            url: '/calcular',
+            type: 'POST',
+            data: form.serialize(),
+            success: function(response) {
+              if(response.success) {
+                // Marca como salvo no localStorage
+                localStorage.setItem('dados_' + tipo + '_salvos', 'true');
+                alert('Dados de combustão ' + tipo + ' salvos com sucesso!');
+                
+                // Verifica se ambos foram salvos para habilitar continuar
+                if(localStorage.getItem('dados_estacionaria_salvos') && 
+                   localStorage.getItem('dados_movel_salvos')) {
+                  $('.primary-btn').prop('disabled', false);
+                }
+              } else {
+                alert('Erro: ' + response.error);
+              }
+            },
+            error: function(xhr) {
+              alert('Erro na comunicação com o servidor');
+            }
+          });
+        }
+        
+        // Desabilita o botão continuar inicialmente
+        $('.primary-btn').prop('disabled', true);
+        
+        // Verifica se já tem dados salvos ao carregar a página
+        if(localStorage.getItem('dados_estacionaria_salvos') && 
+           localStorage.getItem('dados_movel_salvos')) {
+          $('.primary-btn').prop('disabled', false);
+        }
+      });
+    </script>
+  </main>
+</body>
+</html>

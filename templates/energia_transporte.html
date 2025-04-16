@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>EcoMetrics - Energia e Transporte</title>
+  <link rel="stylesheet" href="static/style.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+</head>
+<body>
+  <!-- Cabeçalho com menu -->
+  <header>
+    <div class="nav-container">
+      <div class="nav-item" onclick="window.location.href='index.html'">Calcular Emissões</div>
+      <div class="nav-item logo" onclick="window.location.href='index.html'">EcoMetrics</div>
+      <div class="nav-item" onclick="window.location.href='historico.html'">Histórico</div>
+    </div>
+  </header>
+
+  <!-- Área principal -->
+  <main>
+    <!-- Container que agrupa as duas seções -->
+    <div class="emissoes-container">
+      <!-- Compra de energia elétrica -->
+      <form id="formEnergia" class="emissoes-box">
+        <h2>Compra de energia elétrica</h2>
+        <input type="hidden" name="tipo" value="Energia Elétrica">
+        
+        <label>Id fonte:</label>
+        <input type="text" name="id_fonte" placeholder="Ex.: Ponto de conexão 1" required>
+        
+        <label>Consumo de energia (MWh):</label>
+        <input type="number" name="consumo" step="0.01" min="0" placeholder="Ex.: 1000" required>
+
+        <label>Fator de emissão (tCO2/MWh):</label>
+        <input type="number" name="fator_emissao" step="0.0001" min="0" value="0.1" required>
+        <small>Valor padrão: 0.1 tCO2/MWh (SIN)</small>
+
+        <div class="button-row">
+          <button type="submit" class="secondary-btn">Salvar Dados</button>
+        </div>
+      </form>
+
+      <!-- Transporte e distribuição (Upstream) -->
+      <form id="formTransporte" class="emissoes-box">
+        <h2>Transporte e distribuição</h2>
+        <input type="hidden" name="tipo" id="tipoTransporteHidden" value="Transporte Rodoviário">
+        
+        <label>Id fonte:</label>
+        <input type="text" name="id_fonte" placeholder="Ex.: Caminhão 1" required>
+
+        <label>Distância percorrida (km):</label>
+        <input type="number" name="distancia" step="0.01" min="0" placeholder="Ex.: 300" required>
+
+        <label>Carga transportada (t):</label>
+        <input type="number" name="carga" step="0.01" min="0" placeholder="Ex.: 5" required>
+
+        <label>Tipo de transporte:</label>
+        <select name="tipo_transporte" id="tipoTransporteSelect" required>
+          <option value="">Selecione um</option>
+          <option value="rodoviario">Rodoviário</option>
+          <option value="hidroviario">Hidroviário</option>
+        </select>
+
+        <div class="button-row">
+          <button type="submit" class="secondary-btn">Salvar Dados</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Botão para próxima página -->
+    <div class="button-row center" style="margin-top: 30px;">
+      <button id="btnContinuar" class="primary-btn" onclick="window.location.href='fugitivas_solo.html'">Continuar para Emissões Fugitivas</button>
+    </div>
+
+    <script>
+      $(document).ready(function() {
+        // Atualiza o tipo de transporte no hidden input
+        $('#tipoTransporteSelect').change(function() {
+          const tipo = $(this).val();
+          $('#tipoTransporteHidden').val(
+            tipo === 'rodoviario' ? 'Transporte Rodoviário' : 'Transporte Hidroviário'
+          );
+        });
+
+        // Processa formulário de energia
+        $('#formEnergia').submit(function(e) {
+          e.preventDefault();
+          enviarDados($(this), 'energia');
+        });
+
+        // Processa formulário de transporte
+        $('#formTransporte').submit(function(e) {
+          e.preventDefault();
+          enviarDados($(this), 'transporte');
+        });
+
+        function enviarDados(form, tipo) {
+          $.ajax({
+            url: '/calcular',
+            type: 'POST',
+            data: form.serialize(),
+            success: function(response) {
+              if(response.success) {
+                localStorage.setItem('dados_' + tipo + '_salvos', 'true');
+                alert('Dados de ' + tipo + ' salvos com sucesso!');
+                
+                // Verifica se ambos foram salvos para habilitar continuar
+                if(localStorage.getItem('dados_energia_salvos') && 
+                   localStorage.getItem('dados_transporte_salvos')) {
+                  $('#btnContinuar').prop('disabled', false);
+                }
+              } else {
+                alert('Erro: ' + response.error);
+              }
+            },
+            error: function(xhr) {
+              alert('Erro na comunicação com o servidor');
+            }
+          });
+        }
+        
+        // Desabilita o botão continuar inicialmente
+        $('#btnContinuar').prop('disabled', true);
+        
+        // Verifica se já tem dados salvos ao carregar a página
+        if(localStorage.getItem('dados_energia_salvos') && 
+           localStorage.getItem('dados_transporte_salvos')) {
+          $('#btnContinuar').prop('disabled', false);
+        }
+      });
+    </script>
+  </main>
+</body>
+</html>

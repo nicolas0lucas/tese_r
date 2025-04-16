@@ -1,0 +1,16 @@
+# Requerimentos básicos
+Flask==2.3.2
+Jinja2==3.1.2
+Werkzeug==2.3.6
+
+# Visualização de dados
+matplotlib==3.7.1
+pandas==2.0.3
+openpyxl==3.1.2  # Para exportar Excel
+
+# Gráficos no navegador
+plotly==5.15.0
+chart.js==2.9.4  # Incluído via CDN no HTML
+
+# Utilitários
+python-dotenv==1.0.0
